@@ -28,6 +28,7 @@ repositories {
 
 dependencies {
     implementation files("libs/RealmShark-v1.1.jar")
+    implementation files("libs/jlayer-1.0.1.jar")
     implementation 'com.github.weisj:darklaf-core:3.0.2'
     implementation 'org.java-websocket:Java-WebSocket:1.5.3'
 }
