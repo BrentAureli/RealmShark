@@ -4,6 +4,7 @@ import javazoom.jl.decoder.JavaLayerException;
 import javazoom.jl.player.advanced.AdvancedPlayer;
 
 import java.io.*;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -12,7 +13,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 public class O3Loader {
-    private Map<String, InputStream> mp3Files;
+    private Map<String, byte[]> mp3Files;  // Store MP3 data as byte arrays
     private static final String RESOURCE_PATH = "audio/";
 
     public O3Loader() {
@@ -34,8 +35,8 @@ public class O3Loader {
                     return;
                 }
                 System.out.println("Loading files from JAR.");
-                loadFilesFromJar(resourceStream);
-            } catch (IOException e) {
+                loadFilesFromJar();
+            } catch (IOException | URISyntaxException e) {
                 e.printStackTrace();
             }
         }
@@ -47,8 +48,8 @@ public class O3Loader {
             for (File file : files) {
                 try {
                     String fileNameWithoutExtension = file.getName().replaceFirst("[.][^.]+$", "");
-                    InputStream fileStream = new FileInputStream(file);
-                    mp3Files.put(fileNameWithoutExtension, fileStream);
+                    byte[] fileData = readFileToByteArray(file);
+                    mp3Files.put(fileNameWithoutExtension, fileData);
                     System.out.println("Added MP3 file: " + fileNameWithoutExtension);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -57,72 +58,75 @@ public class O3Loader {
         }
     }
 
-    private void loadFilesFromJar(InputStream resourceStream) throws IOException {
-        try {
-            // Get the URL of the running JAR
-            URL jarUrl = O3Loader.class.getProtectionDomain().getCodeSource().getLocation();
+    private byte[] readFileToByteArray(File file) throws IOException {
+        try (InputStream is = new FileInputStream(file);
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = is.read(buffer)) != -1) {
+                baos.write(buffer, 0, bytesRead);
+            }
+            return baos.toByteArray();
+        }
+    }
 
-            // Convert URL to File path and open the JAR file
-            String jarPath = jarUrl.toURI().getPath();
-            if (jarPath.endsWith(".jar")) {
-                try (JarFile jarFile = new JarFile(jarPath)) {
-                    // Enumerate all entries in the JAR file
-                    Enumeration<JarEntry> entries = jarFile.entries();
-                    while (entries.hasMoreElements()) {
-                        JarEntry entry = entries.nextElement();
-                        // Filter for files in the audio directory
-                        if (entry.getName().startsWith("audio/") && !entry.isDirectory()) {
-                            // Process each file in the audio directory
-                            try {
-                                String fileNameWithoutExtension = entry.getName().replaceFirst("audio/", "").replaceFirst("[.][^.]+$", "");
-                                InputStream fileStream = jarFile.getInputStream(entry);
+    private void loadFilesFromJar() throws IOException, URISyntaxException {
+        // Get the URL of the running JAR
+        URL jarUrl = O3Loader.class.getProtectionDomain().getCodeSource().getLocation();
 
-                                // Copy the InputStream into a ByteArrayInputStream
-                                ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-                                byte[] buffer = new byte[1024];
-                                int bytesRead;
-                                while ((bytesRead = fileStream.read(buffer)) != -1) {
-                                    byteStream.write(buffer, 0, bytesRead);
-                                }
-                                ByteArrayInputStream copiedStream = new ByteArrayInputStream(byteStream.toByteArray());
-
-                                // Store the ByteArrayInputStream in the map
-                                mp3Files.put(fileNameWithoutExtension, copiedStream);
-                                System.out.println("Added MP3 file: " + fileNameWithoutExtension);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
+        // Convert URL to File path and open the JAR file
+        String jarPath = jarUrl.toURI().getPath();
+        if (jarPath.endsWith(".jar")) {
+            try (JarFile jarFile = new JarFile(jarPath)) {
+                // Enumerate all entries in the JAR file
+                Enumeration<JarEntry> entries = jarFile.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    // Filter for files in the audio directory
+                    if (entry.getName().startsWith(RESOURCE_PATH) && !entry.isDirectory()) {
+                        // Process each file in the audio directory
+                        try {
+                            String fileNameWithoutExtension = entry.getName()
+                                    .replaceFirst(RESOURCE_PATH, "")
+                                    .replaceFirst("[.][^.]+$", "");
+                            byte[] fileData = readInputStreamToByteArray(jarFile.getInputStream(entry));
+                            mp3Files.put(fileNameWithoutExtension, fileData);
+                            System.out.println("Added MP3 file: " + fileNameWithoutExtension);
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
                     }
                 }
-            } else {
-                System.err.println("Not running from a JAR file.");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } else {
+            System.err.println("Not running from a JAR file.");
+        }
+    }
+
+    private byte[] readInputStreamToByteArray(InputStream is) throws IOException {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = is.read(buffer)) != -1) {
+                baos.write(buffer, 0, bytesRead);
+            }
+            return baos.toByteArray();
         }
     }
 
     public void play(String fileName) {
-        InputStream is = mp3Files.get(fileName);
-        if (is == null) {
+        byte[] fileData = mp3Files.get(fileName);
+        if (fileData == null) {
             System.out.println("File not found: " + fileName);
             return;
         }
 
-        try {
+        try (InputStream is = new ByteArrayInputStream(fileData)) {
             AdvancedPlayer player = new AdvancedPlayer(is);
             player.play();
             System.out.println("Playing: " + fileName);
-        } catch (JavaLayerException e) {
+        } catch (JavaLayerException | IOException e) {
             e.printStackTrace();
         }
-    }
-
-    public static void main(String[] args) {
-        O3Loader loader = new O3Loader();
-
-        // Example usage
-        loader.play("Control");  // Replace with the actual file name (without extension)
     }
 }

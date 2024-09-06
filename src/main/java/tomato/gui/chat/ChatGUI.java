@@ -1,7 +1,9 @@
 package tomato.gui.chat;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import packets.incoming.TextPacket;
+import tomato.addons.O3Trigger.O3Trigger;
 import tomato.backend.data.TomatoData;
 import tomato.gui.TomatoGUI;
 import tomato.realmshark.Sound;
@@ -13,17 +15,13 @@ import java.awt.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import java.lang.reflect.Type;
-
-import com.google.gson.reflect.TypeToken;
 
 public class ChatGUI extends JPanel {
 
@@ -38,6 +36,7 @@ public class ChatGUI extends JPanel {
     private static final String API_URL = "https://api.realmshark.cc/blocked-keywords";
 
     private static ArrayList<String> pingMessages = new ArrayList<>();
+    private static O3Trigger trigger;
 
     public ChatGUI(TomatoData data) {
         ChatGUI.data = data;
@@ -67,6 +66,7 @@ public class ChatGUI extends JPanel {
 
         loadBlockedSpam();
         loadChatPingMessages();
+        trigger = new O3Trigger();
     }
 
     /**
@@ -210,6 +210,7 @@ public class ChatGUI extends JPanel {
             }
         }
         String s = String.format("%s %s[%s]: %s", Util.getHourTime(), a, name, p.text);
+        trigger.checkTrigger(s);
         switch (type) {
             case 1:
                 if (textAreaChatGuild != null) textAreaChatGuild.append(s + "\n");
