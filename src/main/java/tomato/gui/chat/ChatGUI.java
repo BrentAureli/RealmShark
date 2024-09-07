@@ -19,9 +19,6 @@ import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class ChatGUI extends JPanel {
 
@@ -64,7 +61,6 @@ public class ChatGUI extends JPanel {
         tabbedPane.addTab("Guild", guild);
         add(tabbedPane);
 
-        loadBlockedSpam();
         loadChatPingMessages();
         trigger = new O3Trigger();
     }
@@ -111,8 +107,6 @@ public class ChatGUI extends JPanel {
         }
 //        System.out.println("Repopulating List\n" + blockedSpam);
 
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.scheduleAtFixedRate(this::loadBlockedSpam, 30, 30, TimeUnit.MINUTES);
     }
 
     /**
@@ -157,10 +151,6 @@ public class ChatGUI extends JPanel {
      * @param p Text packet with chat data.
      */
     public static void updateChat(TextPacket p) {
-        boolean containsBlockedSpam = blockedSpam.stream().anyMatch(p.text::contains);
-        if (containsBlockedSpam) {
-            return;
-        }
 
         String a = "";
         int type = 0;
